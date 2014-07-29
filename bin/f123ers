@@ -1,0 +1,153 @@
+#!/bin/bash
+usr="/usr/share/f123ers"
+etc="/etc/f123ers"
+#IFS=$'\n'
+temp="/tmp"
+stamp=$(cat $etc/version)
+source $etc/f123ers.conf
+source $usr/language/$language
+today=$(date +%Y%m%d)
+
+pg_check(){
+
+    printf "zenity  --question --title \"$title\" --text \"$question\" \n" > $temp/descrzenity.sh
+    echo "if [ \$? -eq 0 ]" >> $temp/descrzenity.sh
+    echo "then" >> $temp/descrzenity.sh
+    echo "echo \"$*\" > $temp/answer" >> $temp/descrzenity.sh
+    echo "else" >> $temp/descrzenity.sh
+    echo -n "zenity --title=\"$title\" --width=600 --height=400 --text=\"$text\" --list --column=\"$install\" --column=\"$id\" --column=\"$description\" --separator=$'\n' --hide-column=0 --checklist " >> $temp/descrzenity.sh
+    for id in $*
+    do
+        if [ -e $usr/refused/$id ]
+        then
+            echo -n " FALSE $id \"$(cat $usr/descriptions/$id)\"" >> $temp/descrzenity.sh
+        else
+            echo -n " TRUE $id \"$(cat $usr/descriptions/$id)\"" >> $temp/descrzenity.sh
+        fi
+        touch $usr/refused/$id
+    done
+    echo " > $temp/answer" >> $temp/descrzenity.sh
+    echo "fi" >> $temp/descrzenity.sh
+    if [ -n "$*" ]
+    then
+        USER=`who | grep :0 | grep tty | cut -d\  -f1`
+        export DISPLAY=:0
+      	touch $temp/answer
+	    chmod a+r $temp/answer
+	    chmod a+w $temp/answer
+    	chmod a+r $temp/descrzenity.sh
+	    chmod a+x $temp/descrzenity.sh
+	if [ -e /etc/f123ers/noask ]
+	then
+		echo "$*" > $temp/answer
+	else
+	    su $USER -c "xhost local:$USER; $temp/descrzenity.sh "
+	fi
+
+        for id in $(cat $temp/answer)
+        do
+            rm $usr/refused/$id
+            pg_install $id
+        done
+
+        ok=0
+        
+        for id in $(cat $temp/answer)
+        do
+            if [ -e $usr/installed/$id ]
+            then
+                ok=1;
+            fi
+        done
+        if [ $ok -eq 1 ]
+        then
+            zenity --info --title "$title_conf" --text "$conf_ok"
+        else
+            zenity --error --title "$title_conf" --text "$conf_not_ok"
+        fi
+    fi
+    rm $temp/answer
+    rm $temp/descrzenity.sh
+}
+
+pg_install(){
+    old_cd=$( pwd )
+    mkdir -p $usr/packages/$1
+    cd $usr/packages/$1
+    if [ ! -e pg_$1 ]
+    then
+        wget $repo/?linkid=$1 -O pg_$1.zip
+    fi
+    unzip pg_$1.zip
+    gpg --verify pg.zip.sig
+    if [ $? -eq 0 ]
+    then
+        #retirar assinatura
+        unzip pg.zip
+        cd pg
+        for id in $(cat dependencies)
+        do
+            if [ ! -e $usr/installed/$id ]
+            then
+                pg_install $id
+            fi
+        done
+        chmod u+x autorun.sh
+        ./autorun.sh
+        if [ $? -eq 0 ]
+        then
+            touch $usr/installed/$1
+        fi
+        cd ..
+    fi
+    cd $old_cd
+    rm -r $usr/packages/$1
+}
+
+if [ ! -e /etc/f123ers/version ]
+then
+    echo -n "F123.$(cat /etc/f123ers/version_id).$(cat /etc/f123ers/group_id)." > /etc/f123ers/version
+    for ((i=0; i < 10; i++ ))
+    do
+        echo -n $(($RANDOM % 10)) >> /etc/f123ers/version
+    done
+fi
+
+if [ $today = $(cat $usr/last-update) ] 
+then
+    exit 0 #Sistema já atualizado
+fi
+
+ping -q -c 3 $repo
+if [[ $? != 0 ]]  
+then
+    exit 1 #Servidor em manutenção
+fi
+repo="http://$repo/f123ersrepository/"
+
+wget "$repo?stamp=$stamp" -O $temp/index
+
+if [ -s $temp/index ] #Se existem updates
+then
+    counter=0
+    for id in $(cat $temp/index)
+    do
+        if [ ! -e $usr/installed/$id ]
+        then
+            wget $repo?descriptionid=$id -O $usr/descriptions/$id
+	    updatelist[counter]=$id #updates a serem instalados
+	    let counter++
+        fi
+    done
+
+    if [ ${#updatelist[@]} -ne 0 ]
+    then
+        pg_check "${updatelist[@]}" #chamar o instalador
+    fi
+fi
+
+rm $temp/index
+
+echo $today > $usr/last-update
+
+exit 0

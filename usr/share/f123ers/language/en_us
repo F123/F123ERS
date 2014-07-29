@@ -1,0 +1,8 @@
+title="F123.org - System Update"
+text="Choose which packages you wish to install"
+install="Install"
+id="ID"
+description="Description"
+title_conf="F123ERS"
+conf_ok="Update completed successfully!"
+conf_not_ok="Update failed."

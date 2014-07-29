@@ -1,0 +1,8 @@
+title="F123.org - Actualización del Sistema"
+text="Escoja cuales actualizaciones desea instalar"
+install="Instalar"
+id="ID"
+description="Descripción"
+title_conf="F123ERS"
+conf_ok="Actualización concluida con éxito!"
+conf_not_ok="La actualización ha fallado."

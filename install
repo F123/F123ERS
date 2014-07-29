@@ -1,0 +1,38 @@
+#!/bin/bash
+
+echo -n 'Installing F123ERS'
+if [ -e /bin/f123ers ]
+then
+    rm /bin/f123ers
+fi
+cp bin/f123ers /bin
+chmod a+r /bin/f123ers
+chmod a+x /bin/f123ers
+if [ -e /usr/share/f123ers ]
+then
+    rm -r /usr/share/f123ers
+fi
+cp -r usr/share/f123ers /usr/share
+chmod a+r -R /usr/share/f123ers
+chmod a+x -R /usr/share/f123ers
+if [ -e /etc/f123ers/ ]
+then
+#    rm -r /etc/f123ers/
+    rm /etc/f123ers/f123ers.conf
+    cp -r etc/f123ers/f123ers.conf /etc/f123ers/f123ers.conf
+    chmod a+r -R /etc/f123ers/
+    chmod a+x /etc/f123ers/    
+else
+    cp -r etc/f123ers/ /etc/
+    chmod a+r -R /etc/f123ers/
+    chmod a+x /etc/f123ers/
+fi
+gpg --import key >> /dev/null 2>> /dev/null
+(su root -c "gpg --import key") >> /dev/null 2>> /dev/null
+if [ -e /etc/cron.hourly/f123ers ]
+then
+    rm /etc/cron.hourly/f123ers
+fi
+ln -s /bin/f123ers /etc/cron.hourly/f123ers >> /dev/null 2>> /dev/null
+echo '       [ ok ]'
+echo "Crie os arquivos /etc/f123ers/version_id e /etc/f123ers/group_id"
